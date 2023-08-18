@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <base target="_top">
+  <?!= HtmlService.createHtmlOutputFromFile('css').getContent(); ?>
+</head>
+<center>
+<header>Mach Data</header>
+
+<body>
+  <div id="left">
+  <section class="container">
+    <div class="cp_iptxt">
+      <input type="search" size="25" class="light-table-filter" data-table="order-table" placeholder="ここにプレイヤー名を入力"  />
+      <i class="fa fa-user fa-lg fa-fw" aria-hidden="true"></i>
+    </div>
+<br>
+    <table class="order-table" id="tbl_all" border="1">
+      <tr>
+        <th>Player1</th>
+        <th>Player2</th>
+        <th>Player3</th>
+        <th>Player4</th>
+      </tr>
+    </table>
+
+    <table class="order-table" id="tbl_filtered" border="1" style="display:'none';">
+      <tr>
+      </tr>
+    </table>
+  </section>
+  </div>
+
+
+
+  <!--jQueryのCDN読み込み-->
+  <script src="https://code.jquery.com/jquery-3.6.0.slim.min.js"
+    integrity="sha256-u7e5khyithlIdTpu22PHhENmPcRdFiHRjhAuHcs05RI=" crossorigin="anonymous">
+
+  </script>
+
+  <!--クライアント側javascript-->
+  <script>
+    // 全対戦データを格納するグローバル変数
+    let allData = [];
+    // 全対戦者名を格納するグローバル変数
+    let allMembers = [];
+    // 全対戦データを格納する。
+    window.onload = function(){
+      google.script.run.withSuccessHandler(function(dt){　//dtにvalgetの取得値を渡す
+        allData = dt;
+        allMembers = [...new Set(allData.flat())];
+        getAllMatches();
+      }).valsget();
+    }
+
+    /*全対戦テーブルを構築する*/
+    function getAllMatches() {
+      for(let i =0;i<allData.length;i++){   　//dtの配列の数だけ繰り返し
+        let $tr = $('<tr></tr>');        //jqueryオブジェクトでtr作成
+        $tr.append($('<td></td>').text(allData[i][0])); //trにtdを追加していく
+        $tr.append($('<td></td>').text(allData[i][1])); 
+        $tr.append($('<td></td>').text(allData[i][2]));
+        $tr.append($('<td></td>').text(allData[i][3])); 
+
+        $('#tbl_all').append($tr);　　　//出来上がったtrをtableに行追加       
+      }     
+    }
+
+  </script>
+
+  <!--検索javascript-->
+  <script>
+  (function(document) {
+    const LightTableFilter = (function(Arr) {
+
+      //input に文字入力されたときに発火
+      function _onInputEvent(e) {
+        const _input = e.target;
+        const tableAll = document.getElementById('tbl_all');
+        const tableFiltered = document.getElementById('tbl_filtered');
+
+        // inputが空白なら対戦表を表示、検索結果非表示
+        // 空白でないなら対戦表非表示、検索結果表示
+        if (_input.value !== '') {
+          tableAll.style.display = 'none';
+          tableFiltered.style.display = '';
+          buildFilteredTables(_input.value );
+        } else {
+          tableAll.style.display = '';
+          tableFiltered.style.display = 'none';
+        }
+      }
+
+      /*
+        検索結果のテーブルを構築
+      */
+      function buildFilteredTables(inputValue) {
+        const tbl = $('#tbl_filtered');
+        tbl.empty();
+        const members = allMembers.filter(e => e.includes(inputValue));
+        
+        for (const member of members) {
+          const matches = getSortedMatches(member, allData);
+          tbl.append($('<tr></tr>').append($('<td></td>').text(member + " とマッチしたプレイヤー").attr('class', 'style-td-membername')));
+          for (const match of matches) {
+            if(match[1] >= 2) {
+              tbl.append($('<tr></tr>').append($('<td></td>').text(match[0]).attr('class', 'style-td-backfill')));
+            } else {
+              tbl.append($('<tr></tr>').append($('<td></td>').text(match[0])));
+            }
+          }
+        }
+      }
+
+      /*
+        指定したプレイヤーの対戦相手を対戦回数降順に抽出。
+      */
+      function getSortedMatches(target, allMatches) {
+        const matchRecords = []; // 検索対象を除くすべてのプレイヤーを記録する配列。
+        const counts = {}; // ターゲットとの対戦回数を格納するオブジェクト。(キー：対戦相手の名前、値：対戦回数)
+
+        allMatches.forEach(oneMatch => {
+          if (oneMatch.includes(target)) {
+            // 対戦メンバーから、検索対象を除外する。
+            const players = oneMatch.filter(player => player !== target);
+            // プレイヤーごとに対戦回数を加算する。
+            for (const player of players) {
+              if (counts.hasOwnProperty(player)) counts[player] += 1;
+              else counts[player] = 1;
+              // プレイヤーを追加
+              matchRecords.push(player);
+            }
+          }
+        })
+
+        return matchRecords.map(e => [e, counts[e]]).sort((a, b) => {
+          if (a[1] > b[1]) return -1;
+          if (a[1] < b[1]) return 1;
+          if (a[0] > b[0]) return 1;
+          if (a[0] < b[0]) return -1;
+          return 0;
+        });
+
+      }
+
+      return {
+        // inputにoninputイベントを登録（初回のみ）
+        init: function() {
+          const inputs = document.getElementsByClassName('light-table-filter');
+          Arr.forEach.call(inputs, function(input) {
+            input.oninput = _onInputEvent;
+          });
+        }
+      };
+    })(Array.prototype);
+    /* End of  LightTableFilter*/
+
+
+    document.addEventListener('readystatechange', function() {
+      if (document.readyState === 'complete') {
+        LightTableFilter.init();
+      }
+    });
+  })(document);
+  </script>
+</body>
+</center>
+</html>
