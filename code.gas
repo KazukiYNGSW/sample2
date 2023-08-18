@@ -1,0 +1,22 @@
+function valsget() {
+  //GASに紐づくスプシ呼び出し→シート名からシート取得　　※シート名相違注意
+  let ss = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("data");
+
+　//範囲を取得→getvaluesで値取得、二次元配列に格納
+　let vals = ss.getDataRange().getValues();
+
+  Logger.log(vals); 
+  //ログで出力  
+
+  return vals;
+}
+
+
+
+//doGet関数を使う
+
+function doGet(){
+  let hotpt = HtmlService.createTemplateFromFile('index').evaluate();
+  hotpt.setTitle('PT？'); 
+  return hotpt;
+}
